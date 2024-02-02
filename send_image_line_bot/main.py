@@ -7,7 +7,7 @@ from pprint import pprint
 import datetime
 import json
 import requests
-import pandas
+import pandas as pd
 
 
 file = open('info.json', 'r')
@@ -181,7 +181,7 @@ if __name__ == "__main__":
     for diff_d in diff_d_list:
         old_d_list.append(diff_d)
 
-    df = pandas.io.json.json_normalize(old_d_list)
+    df = pd.json_normalize(old_d_list)
     df.to_csv('data.csv', index=True, encoding='utf-8', quoting=csv.QUOTE_ALL)
 
     line = LineMessage
