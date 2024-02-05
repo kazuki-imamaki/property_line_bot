@@ -22,27 +22,9 @@ line_bot_api = LineBotApi(CHANNEL_ACCESS_TOKEN)
 
 
 class LineMessage:
-    # def send(d):
-
-    #     USER_ID = info["USER_ID"]
-    #     suumo_info = f"{d['title']}\n{d['fee']}\n{d['madori']}\n{d['menseki']}\n{d['image']}\n{d['link']}"
-
-    #     messages = TextSendMessage(text=suumo_info)
-    #     line_bot_api.broadcast(USER_ID, messages=messages)
-
-    # def sendUpdate(today, d):
-    #     USER_ID = info["USER_ID"]
-    #     suumo_info = f"更新されました {today}\n{d['title']}\n{d['fee']}\n{d['madori']}\n{d['menseki']}\n{d['image']}\n{d['link']}"
-
-    #     messages = TextSendMessage(text=suumo_info)
-    #     line_bot_api.broadcast(USER_ID, messages=messages)
-
     def sendFlexMessage(payload):
-        # USER_ID = info["USER_ID"]
         container_obj = FlexSendMessage.new_from_json_dict(payload)
         line_bot_api.broadcast(messages=container_obj)
-
-
 class FlexMessage:
     def genarateJon(title, menseki, fee, access, image, link):
         payload = {
@@ -89,40 +71,12 @@ class FlexMessage:
                 }
             }
         }
-
         return payload
 
-
 if __name__ == "__main__":
-    
-    table_name = 'demo-weather' 
-    client = boto3.client('dynamodb')
-
-    
-    options = {
-        'TableName': table_name,
-        'ProjectionExpression': '#place, #weather',
-        'ExpressionAttributeNames': {
-            '#place': 'place',
-            '#weather': 'weather',
-        },
-        'Limit': 1,     # loopの実験用
-    }
-
-    ret = []
-    while True:
-        res = client.scan(**options)
-        ret += res.get('Items', [])
-        if 'LastEvaluatedKey' not in res:
-            break
-        options['ExclusiveStartKey'] = res['LastEvaluatedKey']
-
-    print(len(ret))
-    print(ret)
-
-
     today = datetime.date.today()
     now = datetime.datetime.now()
+    timestamp_str = now.isoformat()
     res = requests.get(TARGET_URL)
     soup = BeautifulSoup(res.text, 'html.parser')
 
@@ -130,13 +84,10 @@ if __name__ == "__main__":
     contents = soup.find_all('div', class_='cassetteitem')
 
     for content in contents:
-
         # 物件・建物情報
         detail = content.find('div', class_='cassetteitem-detail')
-
         # 各部屋の情報
         table = content.find('table', class_='cassetteitem_other')
-
         # 変数titleに物件名を格納
         title = detail.find('div', class_='cassetteitem_content-title').text
         # 変数addressに住所を格納
@@ -145,12 +96,9 @@ if __name__ == "__main__":
         access = detail.find('li', class_='cassetteitem_detail-col2').text
         # 変数ageに築年数を格納
         age = detail.find('li', class_='cassetteitem_detail-col3').text
-
         # 変数tableから全てのtrタグを取得してtr_tagsに格納
         tr_tags = table.find_all('tr', class_='js-cassette_link')
-
         for tr_tag in tr_tags:
-
             img, floor, price, first_fee, capacity = tr_tag.find_all('td')[1:6]
             # priceから賃料と管理日を取得
             fee, manegement_fee = price.find_all('li')
@@ -158,11 +106,9 @@ if __name__ == "__main__":
             deposit, gratuity = first_fee.find_all('li')
             # capacityから間取りと面積を取得
             madori, menseki = capacity.find_all('li')
-
             # リンクを取得
             a_tag = tr_tag.find('a', class_='cassetteitem_other-linktext')
             link = a_tag['href']
-
             image_tag = tr_tag.find(
                 'img', class_='casssetteitem_other-thumbnail-img')
             image = image_tag['rel']
@@ -173,7 +119,7 @@ if __name__ == "__main__":
                 'age': age,
                 'floor': floor.text,
                 'fee': fee.text,
-                'manegement_fee': manegement_fee.text,
+                'management_fee': manegement_fee.text,
                 'deposit': deposit.text,
                 'gratuity': gratuity.text,
                 'madori': madori.text,
@@ -184,33 +130,58 @@ if __name__ == "__main__":
             }
 
             new_d_list.append(d)
+            
+    table_name = 'property_data' 
+    client = boto3.client('dynamodb')
+    options = {
+        'TableName': table_name,
+    }
 
-    # csvファイルから過去の物件情報を取得する
-    old_d_list = []
-    with open('data.csv', newline='') as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            # print(row)
-            old_d_list.append(row)
+    past_data_list = []
+    while True:
+        res = client.scan(**options)
+        past_data_list += res.get('Items', [])
+        if 'LastEvaluatedKey' not in res:
+            break
+        options['ExclusiveStartKey'] = res['LastEvaluatedKey']
 
-    diff_d_list = []
-    # print(new_d_list[0]['link'])
-    # diff_list = set(new_d_list) ^ set(old_d_list)
+    diff_data_list = []
     for new_d in new_d_list:
-        for old_d in old_d_list:
-            matched_flag = False
+        matched_flag = False
+        for past_data in past_data_list:
+            
             # タイトル、階数、面積が一致したらtrue
-            if new_d['title'] == old_d['title'] and new_d['floor'] == old_d['floor'] and new_d['menseki'] == old_d['menseki'] and new_d['fee'] == old_d['fee']:
+            if new_d['title'] == past_data['title'] and new_d['floor'] == past_data['floor'] and new_d['menseki'] == past_data['menseki'] and new_d['fee'] == past_data['fee']:
                 matched_flag = True
                 break
         if matched_flag == False:
-            diff_d_list.append(new_d)
+            diff_data_list.append(new_d)
 
-    for diff_d in diff_d_list:
-        old_d_list.append(diff_d)
+    def put(diff_data):
+        options = {
+        'TableName': table_name,
+        'Item': {
+            'access': {'S': diff_data['access']},
+            'title': {'S': diff_data['title']},
+            'address': {'S': diff_data['address']},
+            'age': {'S': diff_data['age']},
+            'deposit': {'S': diff_data['deposit']},
+            'fee': {'S': diff_data['fee']},
+            'floor': {'S': diff_data['floor']},
+            'gratuity': {'S': diff_data['gratuity']},
+            'image': {'S': diff_data['image']},
+            'link': {'S': diff_data['link']},
+            'madori': {'S': diff_data['madori']},
+            'management_fee': {'S': diff_data['management_fee']},
+            'menseki': {'S': diff_data['menseki']},
+            'timestamp': {'S': timestamp_str},
+            
+        },
+        }
+        client.put_item(**options)
 
-    df = pd.json_normalize(old_d_list)
-    df.to_csv('data.csv', index=True, encoding='utf-8', quoting=csv.QUOTE_ALL)
+    for diff_data in diff_data_list:
+        put(diff_data)
 
     line = LineMessage
 
@@ -222,16 +193,8 @@ if __name__ == "__main__":
                 d['title'], d['menseki'], d['fee'], d['access'], d['image'], d['link'])
             line.sendFlexMessage(payload)
     else:
-        for d in diff_d_list:
+        for d in diff_data_list:
             payload = flexMessage.genarateJon(
                 d['title'], d['menseki'], d['fee'], d['access'], d['image'], d['link'])
             line.sendFlexMessage(payload)
 
-    # if today.weekday() == 5 and 0 <= now.hour <= 3:
-    #     # 日曜日には今日の検索結果を全件送信
-    #     for d in new_d_list:
-    #         line.send(d)
-    # else:
-    #     # 差分の配列をlineで送信
-    #     for d in diff_d_list:
-    #         line.sendUpdate(today, d)
