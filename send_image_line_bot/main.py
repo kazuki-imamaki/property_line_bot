@@ -8,6 +8,7 @@ import datetime
 import json
 import requests
 import pandas as pd
+import boto3
 
 
 file = open('info.json', 'r')
@@ -93,6 +94,33 @@ class FlexMessage:
 
 
 if __name__ == "__main__":
+    
+    table_name = 'demo-weather' 
+    client = boto3.client('dynamodb')
+
+    
+    options = {
+        'TableName': table_name,
+        'ProjectionExpression': '#place, #weather',
+        'ExpressionAttributeNames': {
+            '#place': 'place',
+            '#weather': 'weather',
+        },
+        'Limit': 1,     # loopの実験用
+    }
+
+    ret = []
+    while True:
+        res = client.scan(**options)
+        ret += res.get('Items', [])
+        if 'LastEvaluatedKey' not in res:
+            break
+        options['ExclusiveStartKey'] = res['LastEvaluatedKey']
+
+    print(len(ret))
+    print(ret)
+
+
     today = datetime.date.today()
     now = datetime.datetime.now()
     res = requests.get(TARGET_URL)
