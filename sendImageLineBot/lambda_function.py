@@ -142,7 +142,7 @@ def lambda_handler(event, context):
         for past_data in past_data_list:
             
             # タイトル、階数、面積が一致したらtrue
-            if new_d['title'] == past_data['title'] and new_d['floor'] == past_data['floor'] and new_d['menseki'] == past_data['menseki'] and new_d['fee'] == past_data['fee']:
+            if new_d['title'] == past_data['title']['S'] and new_d['floor'] == past_data['floor']['S'] and new_d['menseki'] == past_data['menseki']['S'] and new_d['fee'] == past_data['fee']['S']:
                 matched_flag = True
                 break
         if matched_flag == False:
