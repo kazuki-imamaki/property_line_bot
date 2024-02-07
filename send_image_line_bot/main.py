@@ -1,19 +1,10 @@
-import csv
-from aiohttp import Payload
 from linebot import LineBotApi
-from linebot.models import TextSendMessage, FlexSendMessage
+from linebot.models import FlexSendMessage
 from bs4 import BeautifulSoup
-from pprint import pprint
 import datetime
 import json
 import requests
-import pandas as pd
 import boto3
-
-
-file = open('info.json', 'r')
-
-info = json.load(file)
 
 TARGET_URL = 'https://suumo.jp/jj/chintai/ichiran/FR301FC001/?ar=030&bs=040&fw2=&pc=50&po1=25&po2=99&ra=013&rn=0305&rn=0573&rn=0015&rn=0045&rn=0280&ek=030532110&ek=030513930&ek=030506640&ek=030528500&ek=057332110&ek=057313930&ek=057300640&ek=057306640&ek=001527320&ek=001527360&ek=001527380&ek=001534900&ek=001520030&ek=001531910&ek=001506640&ek=004550050&ek=004520870&ek=004553960&ek=004506820&ek=028021960&ek=028039030&ek=028024130&md=04&md=05&md=06&md=07&cb=0.0&ct=14.0&et=10&mb=45&mt=9999999&cn=30&ae=03051&ae=05731&co=1&tc=0400101&tc=0400301&tc=0400203&tc=0400206&shkr1=03&shkr2=03&shkr3=03&shkr4=03'
 LINK_URL_DOMAIN = 'https://suumo.jp/'
