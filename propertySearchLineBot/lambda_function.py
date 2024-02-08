@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 from linebot import (
     LineBotApi, WebhookHandler
@@ -9,8 +10,10 @@ from linebot.models import (
 from linebot.exceptions import (
     LineBotApiError, InvalidSignatureError
 )
+import boto3
 import logging
 
+SUUMO_URL_PATTERN="https://suumo.jp/.*"
 logger = logging.getLogger()
 logger.setLevel(logging.ERROR)
 
@@ -41,11 +44,31 @@ def lambda_handler(event, context):
                   "statusCode": 500,
                   "headers": {},
                   "body": "Error"}
-
+    
     @handler.add(MessageEvent, message=TextMessage)
     def message(line_event):
         text = line_event.message.text
-        line_bot_api.reply_message(line_event.reply_token, TextSendMessage(text=text))
+        pattern = SUUMO_URL_PATTERN
+        if re.match(pattern, text):
+            table_name = 'target_url' 
+            client = boto3.client('dynamodb')
+            options = {
+                'TableName': table_name,
+                'Key': {
+                    'id': {'S': '1'},
+                },
+                'UpdateExpression': 'set #url = :url',
+                'ExpressionAttributeNames': {
+                    '#url': 'url',
+                },
+                'ExpressionAttributeValues': {
+                    ':url': {'S': text},
+                }
+            }
+            client.update_item(**options)
+            line_bot_api.reply_message(line_event.reply_token, TextSendMessage(text="スクレイピング対象を更新しました。"))
+        else:
+            line_bot_api.reply_message(line_event.reply_token, TextSendMessage(text="無効なメッセージです。SuumoのURLを送ってください。"))
 
     try:
         handler.handle(body, signature)
