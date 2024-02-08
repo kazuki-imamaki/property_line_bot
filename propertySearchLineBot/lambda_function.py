@@ -14,6 +14,7 @@ import boto3
 import logging
 
 SUUMO_URL_PATTERN="https://suumo.jp/.*"
+SUUMO_CINTAI_URL_PATTERN="https://suumo.jp/chintai/.*"
 logger = logging.getLogger()
 logger.setLevel(logging.ERROR)
 
@@ -49,7 +50,12 @@ def lambda_handler(event, context):
     def message(line_event):
         text = line_event.message.text
         pattern = SUUMO_URL_PATTERN
-        if re.match(pattern, text):
+        chintai_pattern = SUUMO_CINTAI_URL_PATTERN
+        if not re.match(pattern, text):
+            line_bot_api.reply_message(line_event.reply_token, TextSendMessage(text="無効なメッセージです。SuumoのURLを送ってください。"))
+        elif not re.match(chintai_pattern, text):
+            line_bot_api.reply_message(line_event.reply_token, TextSendMessage(text="Suumoの賃貸検索URLを送ってください。"))
+        else:
             table_name = 'target_url' 
             client = boto3.client('dynamodb')
             options = {
@@ -67,8 +73,6 @@ def lambda_handler(event, context):
             }
             client.update_item(**options)
             line_bot_api.reply_message(line_event.reply_token, TextSendMessage(text="スクレイピング対象を更新しました。"))
-        else:
-            line_bot_api.reply_message(line_event.reply_token, TextSendMessage(text="無効なメッセージです。SuumoのURLを送ってください。"))
 
     try:
         handler.handle(body, signature)
